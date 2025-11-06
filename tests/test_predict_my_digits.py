@@ -5,7 +5,7 @@ from pathlib import Path
 import importlib
 
 # Import the student's prediction module
-import predict_my_digits as pm
+import skeleton.predict_my_digits as pm
 
 
 class TestPredictMyDigits(unittest.TestCase):
@@ -14,11 +14,12 @@ class TestPredictMyDigits(unittest.TestCase):
         # expected model filename per your requirement
         cls.model_name = Path("improved_digit_cnn.pth")
         # expected image files (must exist in working directory or provide correct relative path)
+        # remove ../ from paths to match the new context of tests directory
         cls.images = [
-            Path("../datasets/digits/digit2.jpg"),
-            Path("../datasets/digits/digit4.jpg"),
-            Path("../datasets/digits/digit6.jpg"),
-            Path("../datasets/digits/digit8.jpg"),
+            Path("datasets/digits/digit2.jpg"),
+            Path("datasets/digits/digit4.jpg"),
+            Path("datasets/digits/digit6.jpg"),
+            Path("datasets/digits/digit8.jpg"),
         ]
         # map expected ground-truth from filename -> int
         cls.expected = {
