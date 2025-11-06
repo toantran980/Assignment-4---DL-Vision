@@ -4,9 +4,9 @@ import os
 
 # List of scripts to run in sequence (from skeleton directory)
 scripts = [
-    'L04_digit_CNN.py',
-    #'improved_digit_cnn.py',
-    #'predict_my_digits.py',
+    #'L04_digit_CNN.py',
+    'improved_digit_cnn.py',
+    'predict_my_digits.py',
     #'text_extraction.py',
     #'animal_classifier.py',
     #'object_detection.py'
@@ -14,8 +14,8 @@ scripts = [
 
 # List of test modules to run
 test_scripts = [
-    #'tests.test_predict_my_digits',
-    #'tests.test_improved_digit_cnn',
+    'tests.test_predict_my_digits',
+    'tests.test_improved_digit_cnn',
     #'tests.test_animal_classifier',
     #'tests.test_object_detection',
     #'tests.test_text_extraction'
@@ -28,6 +28,12 @@ for script in scripts:
         result = subprocess.run([sys.executable, script], cwd='skeleton')
         if result.returncode != 0:
             print(f"Errors in {script}: return code {result.returncode}")
+        else:
+            # After training improved_digit_cnn.py, copy model to tests directory for testing
+            if script == 'improved_digit_cnn.py' and os.path.exists('improved_digit_cnn.pth'):
+                import shutil
+                shutil.copy('improved_digit_cnn.pth', 'tests/improved_digit_cnn.pth')
+                print("Copied model to tests directory for testing.\n")
         print(f"Finished {script}\n")
     except Exception as e:
         print(f"Failed to run {script}: {e}\n")
@@ -38,8 +44,8 @@ for test_script in test_scripts:
     print(f"Running {test_script}...")
     try:
         env = os.environ.copy()
-        env['PYTHONPATH'] = 'skeleton'
-        result = subprocess.run([sys.executable, '-m', 'unittest', test_script], cwd='.', env=env)
+        env['PYTHONPATH'] = '../skeleton;..'
+        result = subprocess.run([sys.executable, '-m', 'unittest', 'test_predict_my_digits'], cwd='tests', env=env)
         if result.returncode != 0:
             print(f"Errors in {test_script}: return code {result.returncode}")
         print(f"Finished {test_script}\n")

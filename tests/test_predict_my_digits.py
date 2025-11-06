@@ -14,7 +14,7 @@ class TestPredictMyDigits(unittest.TestCase):
         # expected model filename per your requirement
         cls.model_name = Path("improved_digit_cnn.pth")
         # expected image files (must exist in working directory or provide correct relative path)
-        # remove ../ from paths to match the new context of tests directory
+        # paths relative to tests directory
         cls.images = [
             Path("../datasets/digits/digit2.jpg"),
             Path("../datasets/digits/digit4.jpg"),
