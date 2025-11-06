@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-# device = torch.device('cpu')  # Force CPU usage
+#device = torch.device('cpu')  # Force CPU usage
 if device.type == 'cuda':
     print(f"Using GPU: {torch.cuda.get_device_name(0)}")
 else:
@@ -83,4 +83,4 @@ with torch.no_grad(): # disabling gradient tracking
 print(f"Test Accuracy: {correct / total * 100:.2f}%")
 
 # Save the model parameters that can be loaded later
-# torch.save(model.state_dict(), "my_cnn.ph")
+torch.save(model.state_dict(), "my_cnn.ph")

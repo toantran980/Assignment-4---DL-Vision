@@ -33,6 +33,18 @@ class CNN(nn.Module):
         self.dropout = nn.Dropout(0.3)
         self.fc1 = nn.Linear(32 * 7 * 7, 64)
         self.fc2 = nn.Linear(64, 10)
+        self.conv1 = nn.Conv2d(1, 16, 5, padding=2)
+        self.bn1 = nn.BatchNorm2d(16)
+        self.conv2 = nn.Conv2d(16, 32, 5, padding=2)
+        self.bn2 = nn.BatchNorm2d(32)
+        # Add conv3 to match pooling thrice -> 28->14->7->3
+        self.conv3 = nn.Conv2d(32, 64, 3, padding=1)
+        self.bn3 = nn.BatchNorm2d(64)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.dropout = nn.Dropout(0.3)
+        # after 3 pools spatial dims: 28 -> 14 -> 7 -> 3 (approx)
+        self.fc1 = nn.Linear(64 * 3 * 3, 64)
+        self.fc2 = nn.Linear(64, 10)
 
     def forward(self, x):
         """
@@ -91,14 +103,20 @@ def train_one_epoch(model, loader, optimizer, criterion, device):
         #   - perform forward pass, compute loss
         #   - backpropagate and step optimizer
         #   - accumulate running_loss
-        imgs = ???
-        labels = ???
-        optimizer.???
-        logits = ???
-        loss = ???
-        loss.???
-        optimizer.???
-        running_loss += ??? * ???
+
+        # move to device
+        imgs = imgs.to(device)
+        labels = labels.to(device)
+
+        # forward + backward + optimize
+        optimizer.zero_grad()
+        logits = model(imgs)
+        loss = criterion(logits, labels)
+        loss.backward()
+        optimizer.step()
+
+        # accumulate total loss (sum over batch so we can divide by dataset size)
+        running_loss += loss.item() * imgs.size(0)
     return running_loss / max(1, len(loader.dataset))
 
 
@@ -169,6 +187,7 @@ def main(args):
         if acc > best_acc:
             best_acc = acc
             # TODO: save model here (students implement)
+            torch.save(model.state_dict(), 'improved_digit_cnn.pth')
 
     print(f"Best Test Accuracy during run: {best_acc*100:.4f}%")
 
