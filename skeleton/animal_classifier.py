@@ -156,6 +156,31 @@ def load_imagenet_labels(model_name="resnet50"):
     return None
 
     #raise NotImplementedError("load_imagenet_labels not implemented")
+    try:
+        weights_enum = None
+        attr_name = f"{model_name.upper()}_WEIGHTS"
+        for candidate in (f"{model_name}_weights", f"{model_name.upper()}_WEIGHTS", f"{model_name.upper()}_Weights"):
+            weights_enum = getattr(torchvision.models, candidate, None)
+            if weights_enum is not None:
+                break
+        try:
+            if whitespace is not None:
+                default = getattr(weights_enum, "DEFAULT", None)
+                if default is None:
+                    default = next(iter(weights_enum))
+                labels = load_imagenet_labels_from_torch(default)
+                if labels:
+                    return labels
+        except Exception:
+            pass
+    except Exception:
+        pass
+    labels = download_imagenet_labels()
+    if labels:
+        return labels
+    return None
+
+    #raise NotImplementedError("load_imagenet_labels not implemented")
 
 
 def load_pretrained_resnet(name: str = "resnet50", device='cpu'):
@@ -189,8 +214,22 @@ def load_pretrained_resnet(name: str = "resnet50", device='cpu'):
             except Exception:
                 pass
         
+        weights_enum = getattr(torchvision.models, f"{name}_weights", None)
+        if weights_enum is not None:
+            try:
+                default = getattr(weights_enum, "DEFAULT", None)
+                if default is None:
+                    default = next(iter(weights_enum))
+                weights = default
+                model = model_fn(weights=weights).to(device)
+                preprocess = weights.transforms()
+                return model, preprocess, weights_enum
+            except Exception:
+                pass
+        
     except Exception:
         # TODO: implement fallback to non-pretrained model and basic preprocess
+        model = model_fn(weights=None).to(device)
         model = model_fn(weights=None).to(device)
         preprocess = torchvision.transforms.Compose([
             torchvision.transforms.Resize(256),
@@ -215,9 +254,17 @@ def model_summary(model: nn.Module):
     conv_layers = [m for m in model.modules() if isinstance(m, nn.Conv2d)]
     linear_layers = [m for m in model.modules() if isinstance(m, nn.Linear)]
     batchnorm = [m for m in model.modules() if isinstance(m, (nn.BatchNorm2d, nn.BatchNorm1d))] 
+    conv_layers = [m for m in model.modules() if isinstance(m, nn.Conv2d)]
+    linear_layers = [m for m in model.modules() if isinstance(m, nn.Linear)]
+    batchnorm = [m for m in model.modules() if isinstance(m, (nn.BatchNorm2d, nn.BatchNorm1d))] 
     summary = {
         "total_params": total_params,
         "trainable_params": trainable_params,
+        "conv_layers_count": len(conv_layers),
+        "conv_out_channels": [getattr(m, "out_channels", None) for m in conv_layers],
+        "batchnorm_count": len(batchnorm),
+        "linear_layers_count": len(linear_layers),
+        "layers_with_params_count": sum(1 for m in model.modules() if any(p.numel() > 0 for p in getattr(m, "parameters", lambda: [])())),
         "conv_layers_count": len(conv_layers),
         "conv_out_channels": [getattr(m, "out_channels", None) for m in conv_layers],
         "batchnorm_count": len(batchnorm),
