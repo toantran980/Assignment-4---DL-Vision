@@ -9,7 +9,7 @@ from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 
 # Import the student's training script/module
-import skeleton.improved_digit_cnn as mod
+import improved_digit_cnn as mod
 
 
 class TestImprovedDigitCNN(unittest.TestCase):

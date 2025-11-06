@@ -21,7 +21,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import cv2
 
-from skeleton.improved_digit_cnn import CNN
+from improved_digit_cnn import CNN
 
 
 def image_to_mnist_tensor(path: str, device: torch.device, show=False):
@@ -62,6 +62,7 @@ def image_to_mnist_tensor(path: str, device: torch.device, show=False):
         min_dim = min(h, w)
         digit = img[(h - min_dim)//2:(h + min_dim)//2, (w - min_dim)//2:(w + min_dim)//2]
         h, w = digit.shape
+        
     size = max(h, w)
     square_img = np.zeros((size, size), dtype=np.uint8)
     square_img[(size - h)//2:(size - h)//2 + h, (size - w)//2:(size - w)//2 + w] = digit
@@ -141,7 +142,7 @@ def predict_images(model_path: str, image_paths: List[str], device_str: str = "c
 
 def main():
     parser = argparse.ArgumentParser(description="Predict digit images using improved_digit_cnn.pth.")
-    parser.add_argument("--model", type=str, default="improved_digit_cnn.pth", help="Path to model file")
+    parser.add_argument("--model", type=str, default="../improved_digit_cnn.pth", help="Path to model file")
     parser.add_argument(
         "--images",
         nargs="*",
