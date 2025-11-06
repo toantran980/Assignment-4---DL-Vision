@@ -85,19 +85,17 @@ def load_imagenet_labels_from_torch(weights_enum):
     TODO: students should inspect weights_enum.meta and return a list of 1000 label strings
     if available. Return None if labels cannot be found.
     """
-    # TODO: implement extraction from weights_enum.meta["categories"] (or equivalent)
-    # raise NotImplementedError("load_imagenet_labels_from_torch not implemented")
     try:
         if weights_enum is None:
             return None
         meta = getattr(weights_enum, "meta", None)
         if isinstance(meta, dict):
-            cats = meta.get("categories") or meta.get("lables") or meta.get("imagenet_categories")
+            cats = meta.get("categories") or meta.get("labels") or meta.get("imagenet_categories")
             if cats and isinstance(cats, (list, tuple)) and len(cats) >= 1000:
                 return list(cats)
     except Exception:
         pass
-    return None    
+    return None
 
 
 def download_imagenet_labels():
@@ -108,6 +106,8 @@ def download_imagenet_labels():
     # TODO: implement downloading from
     #  https://raw.githubusercontent.com/pytorch/hub/master/imagenet_classes.txt
     # and return list of 1000 label strings, or None on failure.
+
+    url = "https://raw.githubusercontent.com/pytorch/hub/master/imagenet_classes.txt"
     try:
         with urllib_request.urlopen(url, timeout=10) as r:
             data = r.read().decode("utf-8", errors="ignore")
@@ -132,29 +132,23 @@ def load_imagenet_labels(model_name="resnet50"):
     # TODO: implement the three-stage strategy.
     try:
         weights_enum = None
-        attr_name = f"{model_name.upper()}_WEIGHTS"
-        for candidate in (f"{model_name}_weights", f"{model_name.upper()}_WEIGHTS", f"{model_name.upper()}_Weights"):
+        for candidate in (f"{model_name}_weights", f"{model_name.upper()}_Weights"):
             weights_enum = getattr(torchvision.models, candidate, None)
             if weights_enum is not None:
                 break
-        try:
-            if whitespace is not None:
-                default = getattr(weights_enum, "DEFAULT", None)
-                if default is None:
-                    default = next(iter(weights_enum))
-                labels = load_imagenet_labels_from_torch(default)
-                if labels:
-                    return labels
-        except Exception:
-            pass
+        if weights_enum is not None:
+            default = getattr(weights_enum, "DEFAULT", None)
+            if default is None:
+                default = next(iter(weights_enum))
+            labels = load_imagenet_labels_from_torch(default)
+            if labels:
+                return labels
     except Exception:
         pass
     labels = download_imagenet_labels()
     if labels:
         return labels
     return None
-
-    #raise NotImplementedError("load_imagenet_labels not implemented")
 
 
 def load_pretrained_resnet(name: str = "resnet50", device='cpu'):
@@ -177,17 +171,15 @@ def load_pretrained_resnet(name: str = "resnet50", device='cpu'):
         # TODO: implement torchvision weights API usage here
         weights_enum = getattr(torchvision.models, f"{name}_weights", None)
         if weights_enum is not None:
-            try:
-                default = getattr(weights_enum, "DEFAULT", None)
-                if default is None:
-                    default = next(iter(weights_enum))
-                weights = default
-                model = model_fn(weights=weights).to(device)
-                preprocess = weights.transforms()
-                return model, preprocess, weights_enum
-            except Exception:
-                pass
-        
+            default = getattr(weights_enum, "DEFAULT", None)
+            if default is None:
+                default = next(iter(weights_enum))
+            weights = default
+            model = model_fn(weights=weights).to(device)
+            preprocess = weights.transforms()
+            weights_enum_out = weights_enum
+        else:
+            raise Exception("Weights enum not found")
     except Exception:
         # TODO: implement fallback to non-pretrained model and basic preprocess
         model = model_fn(weights=None).to(device)
@@ -197,10 +189,10 @@ def load_pretrained_resnet(name: str = "resnet50", device='cpu'):
             torchvision.transforms.ToTensor(),
             torchvision.transforms.Normalize(mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225])
         ])
-        weights_enum = None
+        weights_enum_out = None
 
     model.eval()
-    return model, preprocess, weights_enum
+    return model, preprocess, weights_enum_out
 
 
 def model_summary(model: nn.Module):
@@ -210,6 +202,7 @@ def model_summary(model: nn.Module):
     """
     total_params = sum(p.numel() for p in model.parameters())
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    
     # TODO: implement a full summary of the model.
     conv_layers = [m for m in model.modules() if isinstance(m, nn.Conv2d)]
     linear_layers = [m for m in model.modules() if isinstance(m, nn.Linear)]
@@ -355,7 +348,7 @@ def main(args):
     print(f"Using device: {device}")
 
     # Load model (skeleton returns a non-pretrained architecture)
-    model, preprocess = load_pretrained_resnet(args.model, device=device)
+    model, preprocess, _ = load_pretrained_resnet(args.model, device=device)
     imagenet_labels = load_imagenet_labels(args.model)
     if imagenet_labels is None:
         print("Warning: Could not obtain ImageNet labels. Provide --label-map to map folders to indices or enable internet so labels can be downloaded.")
