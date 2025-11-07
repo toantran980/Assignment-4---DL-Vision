@@ -22,7 +22,9 @@ import numpy as np
 import pytesseract
 
 # Tesseract executable path override (if needed)
-pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+#pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+
+pytesseract.pytesseract.tesseract_cmd = r"C:\Users\toant\OneDrive\Desktop\OCR-tesseract\tesseract.exe"
 
 # ---------- constants & regex ----------
 PRICE_RE = re.compile(r'\$?\s*\d{1,3}(?:[.,]\d{1,2})?$')
@@ -57,7 +59,30 @@ def preprocess(img_bgr, target_w=1200):
       - return processed grayscale/thresholded numpy array
     """
     # TODO: implement preprocessing pipeline using cv2 operations described above
-    raise NotImplementedError("preprocess: implement grayscale resize/blur/threshold/morphology")
+    # Convert to grayscale
+    img_gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+
+    # Optionally resize to target_w preserving aspect ratio
+    height, width = img_gray.shape
+    if width > target_w:
+        scale = target_w / width
+        new_width = target_w
+        new_height = int(height * scale)
+        img_gray = cv2.resize(img_gray, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
+
+    # Apply blur and Otsu thresholding
+    img_blur = cv2.GaussianBlur(img_gray, (5, 5), 0)
+    _, img_thresh = cv2.threshold(img_blur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+    # Small morphological closing to join broken characters
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
+    img_closed = cv2.morphologyEx(img_thresh, cv2.MORPH_CLOSE, kernel)
+
+    # Return processed grayscale/thresholded numpy array
+    return img_closed
+
+    #raise NotImplementedError("preprocess: implement grayscale resize/blur/threshold/morphology")
+
 
 # ---------- OCR wrapper (defined and used consistently) ----------
 def run_tesseract_image_to_data(img_gray, psm=6, oem=3):
@@ -65,7 +90,13 @@ def run_tesseract_image_to_data(img_gray, psm=6, oem=3):
     # TODO: implement wrapper that converts numpy array to PIL.Image and calls
     #       pytesseract.image_to_data(..., output_type=pytesseract.Output.DICT, config=cfg)
     #       Where cfg should include `--oem {oem} --psm {psm}`
-    raise NotImplementedError("run_tesseract_image_to_data: call pytesseract.image_to_data here")
+
+    pil_image = Image.fromarray(img_gray)
+    cfg = f'--oem {oem} --psm {psm}'
+    data = pytesseract.image_to_data(pil_image, output_type=pytesseract.Output.DICT, config=cfg)
+    return data
+
+    #raise NotImplementedError("run_tesseract_image_to_data: call pytesseract.image_to_data here")
 
 # ---------- utilities ----------
 def normalize_price_token(tok):
@@ -77,22 +108,90 @@ def normalize_price_token(tok):
       - convert commas to dots when appropriate
       - remove non-numeric characters, parse float, round to 2 decimals
     """
-    # TODO: implement normalization and robust parsing
-    raise NotImplementedError("normalize_price_token: TODO implement token -> float conversion")
+    if not tok or not isinstance(tok, str):
+        return None
+    
+    # Strip currency symbols and whitespace
+    tok = tok.replace('$', '').strip()
+    
+    if not tok:
+        return None
+
+    # Normalize common OCR confusions (O->0, o->0)
+    ocr_fixes = {
+        'O': '0', 'o': '0', 'Q': '0',
+        'l': '1', 'I': '1', '|': '1',
+        'S': '5', 's': '5',
+        'B': '8', 'b': '8',
+        'Z': '2', 'z': '2',
+    }
+    
+    for old_char, new_char in ocr_fixes.items():
+        tok = tok.replace(old_char, new_char)
+
+    # Convert commas to dots when appropriate
+    comma_count = tok.count(',')
+    dot_count = tok.count('.')
+    
+    if comma_count == 1 and dot_count == 0:
+        tok = tok.replace(',', '.')
+    elif comma_count > 0 and dot_count > 0:
+        last_comma_pos = tok.rfind(',')
+        last_dot_pos = tok.rfind('.')
+        
+        if last_comma_pos > last_dot_pos:
+            tok = tok.replace('.', '').replace(',', '.')
+        else:
+            tok = tok.replace(',', '')
+    elif comma_count > 1:
+        tok = tok.replace(',', '')
+
+    # Remove non-numeric characters
+    tok = re.sub(r'[^\d.]', '', tok)
+    
+    if not tok or tok == '.':
+        return None
+    
+    if tok.count('.') > 1:
+        parts = tok.split('.')
+        tok = ''.join(parts[:-1]) + '.' + parts[-1]
+    
+    if tok.startswith('.'):
+        tok = '0' + tok
+    if tok.endswith('.'):
+        tok = tok + '0'
+    
+    # Parse float, round to 2 decimals
+    try:
+        price = float(tok)
+        
+        if price < 0 or price > 99999:
+            return None
+        
+        return round(price, 2)
+        
+    except (ValueError, AttributeError, OverflowError):
+        return None
+    
+    #raise NotImplementedError("normalize_price_token: TODO implement token -> float conversion")
 
 def token_looks_like_price(token):
     """
     Heuristic to quickly determine whether a text token could represent a price.
     """
     # TODO: implement quick heuristics similar to original: presence of $ . , or short digit groups
-    raise NotImplementedError("token_looks_like_price: TODO implement heuristic")
+    return PRICE_RE.match(token) or ANY_NUM_RE.match(token)
+
+    #raise NotImplementedError("token_looks_like_price: TODO implement heuristic")
 
 def is_footer_line(line_text):
     """
     Return True if line_text looks like a footer (survey, website, phone, etc).
     """
     # TODO: implement detection using SURVEY_FOOTERS and PHONE_RE
-    raise NotImplementedError("is_footer_line: TODO implement footer detection")
+    return any(footer in line_text.lower() for footer in SURVEY_FOOTERS) or PHONE_RE.search(line_text)
+
+    #raise NotImplementedError("is_footer_line: TODO implement footer detection")
 
 def pick_store_name(top_lines):
     """
@@ -104,7 +203,37 @@ def pick_store_name(top_lines):
       - fallback to first non-empty line or 'Unknown Store'
     """
     # TODO: implement selection heuristics described above
-    raise NotImplementedError("pick_store_name: TODO implement store name selection")
+    # Ignore generic words
+    generic_words = ['receipt', 'invoice', 'store', 'sales', 'cashier', 
+                     'date', 'time', 'order', 'number', 'phone', 'address']
+    
+    # Filter out empty and generic lines
+    candidates = []
+    for line in top_lines[:10]:  # Look at more lines
+        line = line.strip()
+        if len(line) < 2:
+            continue
+        line_lower = line.lower()
+        if any(generic in line_lower for generic in generic_words):
+            continue
+        if line_lower.replace('-', '').replace('*', '').replace(' ', '').isdigit():
+            continue
+        candidates.append(line)
+    
+    if not candidates:
+        return 'Unknown Store'
+    
+    # Check for known stores (including partial matches)
+    for line in candidates:
+        for store in COMMON_STORES:
+            if store in line.lower():
+                # Return the full line, not just the matched part
+                return line.strip()
+    
+    # Return first reasonable candidate
+    return candidates[0]
+
+    #raise NotImplementedError("pick_store_name: TODO implement store name selection")
 
 # ---------- token -> lines clustering ----------
 def cluster_tokens_into_lines(data):
@@ -118,7 +247,56 @@ def cluster_tokens_into_lines(data):
     #   - sort tokens by top, left
     #   - group tokens whose 'top' is close into line buckets
     #   - compute line_text by joining token['text'] by left order
-    raise NotImplementedError("cluster_tokens_into_lines: TODO implement clustering logic")
+
+    # Build list of token dicts with numeric left/top/height/conf
+    tokens = []
+    n_boxes = len(data['text'])
+    for i in range(n_boxes):
+        if int(data['conf'][i]) > 0 and data['text'][i].strip():
+            token = {
+                'text': data['text'][i].strip(),
+                'left': int(data['left'][i]),
+                'top': int(data['top'][i]),
+                'height': int(data['height'][i]),
+                'conf': int(data['conf'][i])
+            }
+            tokens.append(token)
+    
+    if not tokens:
+        return []
+    
+    # Sort by top, then left
+    tokens.sort(key=lambda t: (t['top'], t['left']))
+    
+    # Calculate median height for dynamic tolerance
+    heights = [t['height'] for t in tokens if t['height'] > 0]
+    median_height = sorted(heights)[len(heights)//2] if heights else 20
+    line_tolerance = median_height * 0.5
+    
+    # Group into lines
+    lines = []
+    current_line = [tokens[0]]
+    
+    for token in tokens[1:]:
+        # Check if token belongs to current line (vertical overlap)
+        prev = current_line[-1]
+        if abs(token['top'] - prev['top']) <= line_tolerance:
+            current_line.append(token)
+        else:
+            # Save current line and start new one
+            current_line.sort(key=lambda t: t['left'])
+            line_text = ' '.join(t['text'] for t in current_line if t['text'])
+            lines.append({'tokens': current_line, 'line_text': line_text})
+            current_line = [token]
+    
+    if current_line:
+        current_line.sort(key=lambda t: t['left'])
+        line_text = ' '.join(t['text'] for t in current_line if t['text'])
+        lines.append({'tokens': current_line, 'line_text': line_text})
+    
+    return lines
+
+    #raise NotImplementedError("cluster_tokens_into_lines: TODO implement clustering logic")
 
 # ---------- line parsing ----------
 def parse_line_for_item(line_obj, conf_threshold, max_item_price):
@@ -133,8 +311,68 @@ def parse_line_for_item(line_obj, conf_threshold, max_item_price):
       - determine item name as text left of chosen token, cleaned up
       - mark is_total if line contains TOTAL_KEYWORDS
     """
-    # TODO: implement robust line parsing; this is the core logic used by process_image_file
-    raise NotImplementedError("parse_line_for_item: TODO implement item/price extraction heuristics")
+    line_text = line_obj['line_text']
+    tokens = line_obj['tokens']
+    
+    # Skip if line is too short or looks like footer
+    if len(line_text.strip()) < 2 or is_footer_line(line_text):
+        return None, None, False
+    
+    # Mark is_total if line contains TOTAL_KEYWORDS
+    is_total = any(keyword in line_text.lower() for keyword in TOTAL_KEYWORDS)
+    
+    # Detect qty @ unit patterns (e.g., '3 @ 0.29')
+    qty_match = re.search(r'(\d+)\s*@\s*([\d.,]+)', line_text)
+    if qty_match:
+        qty = int(qty_match.group(1))
+        unit_price = normalize_price_token(qty_match.group(2))
+        if unit_price and unit_price > 0:
+            total_price = round(qty * unit_price, 2)
+            if total_price <= max_item_price or is_total:
+                item_parts = line_text[:qty_match.start()].strip()
+                return item_parts if item_parts else None, total_price, is_total
+    
+    # Collect numeric candidates in the line, prefer rightmost candidate with sufficient conf
+    candidates = []
+    for token in tokens:
+        if token['conf'] >= conf_threshold and token_looks_like_price(token['text']):
+            # Filter out phone-like or long-int tokens
+            if PHONE_RE.search(token['text']) or LONG_INT_ONLY_RE.match(token['text']):
+                continue
+            candidates.append(token)
+    
+    if not candidates:
+        return None, None, is_total
+    
+    # Prefer rightmost candidate with sufficient conf
+    chosen_token = candidates[-1]
+    
+    # Normalize chosen candidate to a float price
+    price = normalize_price_token(chosen_token['text'])
+    
+    # Validate price
+    if price is None or price <= 0:
+        return None, None, is_total
+    
+    # For non-total lines, enforce max price
+    if not is_total and price > max_item_price:
+        return None, None, is_total
+    
+    # Determine item name as text left of chosen token, cleaned up
+    item_tokens = [t['text'] for t in tokens if t['left'] < chosen_token['left'] - 10]
+    item_name = ' '.join(item_tokens).strip(' .:-_*')
+    
+    # Require reasonable item name for non-total lines
+    if not is_total:
+        if len(item_name) < 2:
+            return None, None, is_total
+        # Filter out single numbers or obvious garbage
+        if item_name.replace('.', '').replace(',', '').replace(' ', '').isdigit():
+            return None, None, is_total
+    
+    return item_name if item_name else None, price, is_total
+
+    # NotImplementedError("parse_line_for_item: TODO implement item/price extraction heuristics")
 
 # ---------- process a single file ----------
 def process_image_file(path, args):
@@ -150,7 +388,40 @@ def process_image_file(path, args):
     Returns: (store, items_list, computed_total, printed_total)
     """
     # TODO: implement orchestration using the helper functions above.
-    raise NotImplementedError("process_image_file: TODO implement full file processing pipeline")
+    # read image with cv2.imread
+    img_bgr = cv2.imread(path)
+    if img_bgr is None:
+        raise ValueError(f"Could not read image: {path}")
+    
+    # preprocess
+    img_preprocessed = preprocess(img_bgr, target_w=args.target_width)
+    
+    # run tesseract
+    ocr_data = run_tesseract_image_to_data(img_preprocessed, psm=args.psm)
+    
+    # cluster tokens into lines
+    clustered_lines = cluster_tokens_into_lines(ocr_data)
+    if not clustered_lines:
+        raise ValueError(f"No text lines found in image: {path}")
+    
+    # pick store name
+    top_lines_text = [line['line_text'] for line in clustered_lines[:5]]
+    store_name = pick_store_name(top_lines_text)
+
+    # parse each line for items
+    items_list = []
+    computed_total = 0.0
+    printed_total = None
+    for line_obj in clustered_lines:
+        item_name, price, is_total = parse_line_for_item(line_obj, args.conf, args.max_item)
+        if item_name is not None:
+            items_list.append((item_name, price))
+            computed_total += price
+        if is_total and price is not None:
+            printed_total = price
+    return store_name, items_list, round(computed_total, 2), printed_total
+
+    #raise NotImplementedError("process_image_file: TODO implement full file processing pipeline")
 
 # ---------- CSV I/O ----------
 def write_csv_rows(rows, out_path):

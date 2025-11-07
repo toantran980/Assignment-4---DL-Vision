@@ -98,22 +98,22 @@ def train_one_epoch(model, loader, optimizer, criterion, device):
     running_loss = 0.0
     for imgs, labels in loader:
         # TODO: Students should implement the training loop:
-        #   - move imgs and labels to device
+        # move imgs and labels to device
         imgs = imgs.to(device)
         labels = labels.to(device)
 
-        #   - zero optimizer gradients        
+        # zero optimizer gradients        
         optimizer.zero_grad()
 
-        #   - perform forward pass, compute loss
+        # perform forward pass, compute loss
         logits = model(imgs)        
         loss = criterion(logits, labels)
 
-        #   - backpropagate and step optimizer        
+        # backpropagate and step optimizer        
         loss.backward()
         optimizer.step()
 
-        #   - accumulate running_loss
+        # accumulate running_loss
         running_loss += loss.item() * imgs.size(0)
     
     return running_loss / max(1, len(loader.dataset))

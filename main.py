@@ -7,14 +7,14 @@ scripts = [
     #'L04_digit_CNN.py',
     #'improved_digit_cnn.py',
     #'predict_my_digits.py',
-    #'text_extraction.py',
+    'text_extraction.py',
     #'animal_classifier.py',
     #'object_detection.py'
 ]
 
 # List of test modules to run
 test_scripts = [
-    'tests.test_predict_my_digits',
+    #'tests.test_predict_my_digits',
     #'tests.test_improved_digit_cnn',
     #'tests.test_animal_classifier',
     #'tests.test_object_detection',
@@ -25,7 +25,10 @@ test_scripts = [
 for script in scripts:
     print(f"Running {script}...")
     try:
-        result = subprocess.run([sys.executable, script], cwd='skeleton')
+        if script == 'text_extraction.py':
+            result = subprocess.run([sys.executable, script, '--folder', '../datasets/receipts', '--conf', '50', '--max-item', '150'], cwd='skeleton')
+        else:
+            result = subprocess.run([sys.executable, script], cwd='skeleton')
         if result.returncode != 0:
             print(f"Errors in {script}: return code {result.returncode}")
         else:

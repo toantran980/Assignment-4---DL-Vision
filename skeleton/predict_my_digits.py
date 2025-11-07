@@ -35,25 +35,25 @@ def image_to_mnist_tensor(path: str, device: torch.device, show=False):
         raise FileNotFoundError(f"Image not found: {path}")
 
     # TODO: Implement the full preprocessing pipeline described in the original script:
-    #   - load image as grayscale (PIL or cv2) and convert to numpy array
+    # load image as grayscale (PIL or cv2) and convert to numpy array
     pil_img = Image.open(path).convert("L")
     img = np.array(pil_img)
 
-    #   - automatically invert if background is light
+    # automatically invert if background is light
     if np.mean(img) > 127:
         img = 255 - img
         
-    #   - denoise with Gaussian blur and normalize contrast
+    # denoise with Gaussian blur and normalize contrast
     img = cv2.GaussianBlur(img, (5, 5), 0)
     img = cv2.normalize(img, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
 
-    #   - apply Otsu thresholding / binarization
+    # apply Otsu thresholding / binarization
     _, img = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
-    #   - find digit bounding box (cv2.findNonZero + cv2.boundingRect) with a fallback center crop
+    # find digit bounding box (cv2.findNonZero + cv2.boundingRect) with a fallback center crop
     coords = cv2.findNonZero(img)
 
-    #   - pad to square and resize to 28x28 preserving aspect ratio
+    # pad to square and resize to 28x28 preserving aspect ratio
     if coords is not None:
         x, y, w, h = cv2.boundingRect(coords)
         digit = img[y:y+h, x:x+w]
@@ -68,16 +68,16 @@ def image_to_mnist_tensor(path: str, device: torch.device, show=False):
     square_img[(size - h)//2:(size - h)//2 + h, (size - w)//2:(size - w)//2 + w] = digit
     resized_img = cv2.resize(square_img, (28, 28), interpolation=cv2.INTER_AREA)
 
-    #   - convert to float32 array in [0,1], apply normalization (arr - 0.1307)/0.3081
+    # convert to float32 array in [0,1], apply normalization (arr - 0.1307)/0.3081
     norm_img = (resized_img.astype(np.float32) / 255.0 - 0.1307) / 0.3081
 
-    #   - if show=True, display the preprocessed image for debugging
+    # if show=True, display the preprocessed image for debugging
     if show:
         cv2.imshow("Preprocessed Image", resized_img)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
         
-    #   - return a torch tensor of shape (1,1,28,28) on the requested device
+    # return a torch tensor of shape (1,1,28,28) on the requested device
     tensor = torch.tensor(norm_img, dtype=torch.float32).unsqueeze(0).unsqueeze(0).to(device)
     return tensor
     #raise NotImplementedError("image_to_mnist_tensor: TODO implement preprocessing pipeline")
