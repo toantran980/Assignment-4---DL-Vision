@@ -311,6 +311,7 @@ def parse_line_for_item(line_obj, conf_threshold, max_item_price):
       - determine item name as text left of chosen token, cleaned up
       - mark is_total if line contains TOTAL_KEYWORDS
     """
+    # TODO: implement robust line parsing; this is the core logic used by process_image_file
     line_text = line_obj['line_text']
     tokens = line_obj['tokens']
     
