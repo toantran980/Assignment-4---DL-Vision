@@ -85,9 +85,11 @@ def load_imagenet_labels_from_torch(weights_enum):
     TODO: students should inspect weights_enum.meta and return a list of 1000 label strings
     if available. Return None if labels cannot be found.
     """
+    # TODO: implement extraction from weights_enum.meta["categories"] (or equivalent)
     try:
         if weights_enum is None:
             return None
+        # Many torchvision weights provide .meta with 'categories' or 'categories'
         meta = getattr(weights_enum, "meta", None)
         if isinstance(meta, dict):
             cats = meta.get("categories") or meta.get("labels") or meta.get("imagenet_categories")
@@ -106,7 +108,6 @@ def download_imagenet_labels():
     # TODO: implement downloading from
     #  https://raw.githubusercontent.com/pytorch/hub/master/imagenet_classes.txt
     # and return list of 1000 label strings, or None on failure.
-
     url = "https://raw.githubusercontent.com/pytorch/hub/master/imagenet_classes.txt"
     try:
         with urllib_request.urlopen(url, timeout=10) as r:
@@ -115,9 +116,9 @@ def download_imagenet_labels():
         if len(labels) >= 1000:
             return labels
     except Exception:
+        # Network may be unavailable in testing environment; that's okay — return None
         return None
     return None
-    #raise NotImplementedError("download_imagenet_labels not implemented")
 
 
 def load_imagenet_labels(model_name="resnet50"):
@@ -130,24 +131,38 @@ def load_imagenet_labels(model_name="resnet50"):
     Return the list of labels from PyTorch or None.
     """
     # TODO: implement the three-stage strategy.
+    # 1) Try torchvision weights enums (best-effort)
     try:
+        # Many torchvision versions expose e.g. ResNet50_Weights or resnet50.weights
         weights_enum = None
-        for candidate in (f"{model_name}_weights", f"{model_name.upper()}_Weights"):
+        attr_name = f"{model_name.upper()}_WEIGHTS"
+        # try several attribute patterns
+        for candidate in (f"{model_name}_weights", f"{model_name.upper()}_WEIGHTS", f"{model_name.upper()}_Weights"):
             weights_enum = getattr(torchvision.models, candidate, None)
             if weights_enum is not None:
                 break
-        if weights_enum is not None:
-            default = getattr(weights_enum, "DEFAULT", None)
-            if default is None:
-                default = next(iter(weights_enum))
-            labels = load_imagenet_labels_from_torch(default)
-            if labels:
-                return labels
+        # if weights_enum is an Enum class, try to access DEFAULT or IMAGENET1K_V1
+        try:
+            if weights_enum is not None:
+                default = getattr(weights_enum, "DEFAULT", None)
+                if default is None:
+                    # fallback: pick first enum member
+                    default = next(iter(weights_enum))
+                labels = load_imagenet_labels_from_torch(default)
+                if labels:
+                    return labels
+        except Exception:
+            # if we can't extract, continue to download fallback
+            pass
     except Exception:
         pass
+
+    # 2) fallback to download canonical list
     labels = download_imagenet_labels()
     if labels:
         return labels
+
+    # 3) give up
     return None
 
 
@@ -168,31 +183,37 @@ def load_pretrained_resnet(name: str = "resnet50", device='cpu'):
     # TODO: students should replace this with code that uses torchvision weights (if available)
     # and returns weights_enum and transforms when possible.
     try:
-        # TODO: implement torchvision weights API usage here
+        # Try to use new torchvision weights API if present (best-effort)
         weights_enum = getattr(torchvision.models, f"{name}_weights", None)
         if weights_enum is not None:
-            default = getattr(weights_enum, "DEFAULT", None)
-            if default is None:
-                default = next(iter(weights_enum))
-            weights = default
-            model = model_fn(weights=weights).to(device)
-            preprocess = weights.transforms()
-            weights_enum_out = weights_enum
-        else:
-            raise Exception("Weights enum not found")
+            # choose default/first available
+            try:
+                default = getattr(weights_enum, "DEFAULT", None)
+                if default is None:
+                    default = next(iter(weights_enum))
+                weights = default
+                model = model_fn(weights=weights).to(device)
+                # torchvision weights typically provide .transforms()
+                preprocess = weights.transforms()
+                return model, preprocess, weights_enum
+            except Exception:
+                # fallback to non-pretrained
+                pass
     except Exception:
-        # TODO: implement fallback to non-pretrained model and basic preprocess
-        model = model_fn(weights=None).to(device)
-        preprocess = torchvision.transforms.Compose([
-            torchvision.transforms.Resize(256),
-            torchvision.transforms.CenterCrop(224),
-            torchvision.transforms.ToTensor(),
-            torchvision.transforms.Normalize(mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225])
-        ])
-        weights_enum_out = None
+        pass
+
+    # Fallback: non-pretrained model and basic preprocess
+    model = model_fn(weights=None).to(device)
+    preprocess = torchvision.transforms.Compose([
+        torchvision.transforms.Resize(256),
+        torchvision.transforms.CenterCrop(224),
+        torchvision.transforms.ToTensor(),
+        torchvision.transforms.Normalize(mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225])
+    ])
+    weights_enum = None
 
     model.eval()
-    return model, preprocess, weights_enum_out
+    return model, preprocess, weights_enum
 
 
 def model_summary(model: nn.Module):
@@ -202,17 +223,16 @@ def model_summary(model: nn.Module):
     """
     total_params = sum(p.numel() for p in model.parameters())
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    
     # TODO: implement a full summary of the model.
     conv_layers = [m for m in model.modules() if isinstance(m, nn.Conv2d)]
     linear_layers = [m for m in model.modules() if isinstance(m, nn.Linear)]
-    batchnorm = [m for m in model.modules() if isinstance(m, (nn.BatchNorm2d, nn.BatchNorm1d))] 
+    batchnorms = [m for m in model.modules() if isinstance(m, (nn.BatchNorm2d, nn.BatchNorm1d))]
     summary = {
         "total_params": total_params,
         "trainable_params": trainable_params,
         "conv_layers_count": len(conv_layers),
         "conv_out_channels": [getattr(m, "out_channels", None) for m in conv_layers],
-        "batchnorm_count": len(batchnorm),
+        "batchnorm_count": len(batchnorms),
         "linear_layers_count": len(linear_layers),
         "layers_with_params_count": sum(1 for m in model.modules() if any(p.numel() > 0 for p in getattr(m, "parameters", lambda: [])())),
         "top_level_modules": [type(m).__name__ for m in model.children()],
@@ -319,7 +339,8 @@ def predict_image(model, preprocess, image_path: Path, device='cpu'):
     Students should ensure preprocessing matches the model's expected transforms.
     """
     # TODO: Open the image, convert it to RGB, apply preprocess, move to device
-    if isinstance(image_path,(str,bytes)):
+    # Implemented minimal working behavior for tests
+    if isinstance(image_path, (str, bytes)):
         image_path = Path(image_path)
     img = Image.open(image_path).convert("RGB")
     inp = preprocess(img).unsqueeze(0).to(device)
@@ -327,11 +348,12 @@ def predict_image(model, preprocess, image_path: Path, device='cpu'):
         out = model(inp)
         if out is None:
             raise RuntimeError("Model returned None")
+        # ensure out shape (B, C)
         if out.dim() == 1:
             out = out.unsqueeze(0)
         probs = torch.nn.functional.softmax(out, dim=1)
         top_prob, top_idx = torch.topk(probs, k=1, dim=1)
-    return int(top_idx[0,0].item()), float(top_prob[0,0].item())
+    return int(top_idx[0, 0].item()), float(top_prob[0, 0].item())
 
 
 def main(args):
@@ -492,7 +514,7 @@ def main(args):
     print("Done.")
 
     # TODO: save model state_dict to disk so unit tests can load it
-    torch.save(model.state_dict(), 'animal_classifier_resnet.pth')
+    torch.save(model.state_dict(), "animal_classifier.pth")
 
 
 if __name__ == "__main__":

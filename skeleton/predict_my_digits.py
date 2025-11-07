@@ -142,7 +142,7 @@ def predict_images(model_path: str, image_paths: List[str], device_str: str = "c
 
 def main():
     parser = argparse.ArgumentParser(description="Predict digit images using improved_digit_cnn.pth.")
-    parser.add_argument("--model", type=str, default="../improved_digit_cnn.pth", help="Path to model file")
+    parser.add_argument("--model", type=str, default="improved_digit_cnn.pth", help="Path to model file")
     parser.add_argument(
         "--images",
         nargs="*",

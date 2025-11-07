@@ -8,15 +8,15 @@ scripts = [
     #'improved_digit_cnn.py',
     #'predict_my_digits.py',
     #'text_extraction.py',
-    'animal_classifier.py',
+    #'animal_classifier.py',
     #'object_detection.py'
 ]
 
 # List of test modules to run
 test_scripts = [
-    #'tests.test_predict_my_digits',
+    'tests.test_predict_my_digits',
     #'tests.test_improved_digit_cnn',
-    'tests.test_animal_classifier',
+    #'tests.test_animal_classifier',
     #'tests.test_object_detection',
     #'tests.test_text_extraction'
 ]
@@ -32,7 +32,7 @@ for script in scripts:
             # After training improved_digit_cnn.py, copy model to tests directory for testing
             if script == 'improved_digit_cnn.py' and os.path.exists('improved_digit_cnn.pth'):
                 import shutil
-                shutil.copy('improved_digit_cnn.pth', 'tests/improved_digit_cnn.pth')
+                shutil.copy('improved_digit_cnn.pth', '../tests/improved_digit_cnn.pth')
                 print("Copied model to tests directory for testing.\n")
         print(f"Finished {script}\n")
     except Exception as e:
@@ -45,7 +45,7 @@ for test_script in test_scripts:
     try:
         env = os.environ.copy()
         env['PYTHONPATH'] = '../skeleton;..'
-        result = subprocess.run([sys.executable, '-m', 'unittest', 'test_predict_my_digits'], cwd='tests', env=env)
+        result = subprocess.run([sys.executable, '-m', 'unittest', test_script], cwd='tests', env=env)
         if result.returncode != 0:
             print(f"Errors in {test_script}: return code {result.returncode}")
         print(f"Finished {test_script}\n")
