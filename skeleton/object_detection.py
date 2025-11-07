@@ -112,6 +112,13 @@ def extract_predictions(results):
         print("\n✅ Objects detected:")
         # TODO: Print the object names and confidences in the
         # format: " - <name>: <confidence>"
+        for _, row in df.iterrows():
+            try:
+                name = row.get('name', row.get('label', 'unkown'))
+                conf = float(row.get('confidence', row.get('conf', 0.0)))
+                print(f" - {name}: {conf:.2f}")
+            except Exception:
+                continue
     else:
         print("\n⚠️ No objects detected.")
     return df
@@ -129,6 +136,17 @@ def draw_bounding_boxes(image_cv, predictions):
         return image_cv
 
     # TODO: Students should implement drawing bounding boxes and labels
+    for _, row in predictions.iterrows():
+        try:
+            xmin = int(row['xmin'])
+            ymin = int(row['ymin'])
+            xmax = int(row['xmax'])
+            ymax = int(row['ymax'])
+            label = f"{row.get('name', 'obj')} {float(row.get('confidence', 0.0)):.2f}"
+            cv2.rectangle(image_cv, (xmin, ymin), (xmax, ymax), (0, 255, 0), 2)
+            cv2.putText(image_cv, label, (xmin, max(mint:=ymin-6, 0)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 1)
+        except Exception:
+            continue
     return image_cv
 
 
@@ -160,12 +178,12 @@ def print_bounding_boxes(predictions):
     for _, row in predictions.iterrows():
         try:
             # TODO: Get the coordinates, label, and confidence from the row
-            x1 = ???
-            y1 = ???
-            x2 = ???
-            y2 = ???
-            label = ???
-            conf = ???
+            x1 = int(row['xmin'])
+            y1 = int(row['ymin'])
+            x2 = int(row['xmax'])
+            y2 = int(row['ymax'])
+            label = row.get('name', row.get('label', 'object'))
+            conf = float(row.get('confidence', row.get('conf', 0.0)))
             print(f"{label}: {x1},{y1},{x2},{y2} (conf={conf:.2f})")
         except Exception:
             # Fallback: print the raw row if formatting fails
