@@ -174,46 +174,44 @@ def load_pretrained_resnet(name: str = "resnet50", device='cpu'):
       - otherwise construct a model with pretrained=False and provide a reasonable preprocess transform
     This skeleton returns a bare ResNet architecture (no pretrained weights) and a basic preprocess pipeline.
     """
+    import torchvision
+    import torchvision.transforms as transforms
+    
     name = name.lower()
     if name not in ("resnet18", "resnet34", "resnet50", "resnet101", "resnet152"):
         raise ValueError(f"Unsupported model '{name}'. Choose one of resnet18/34/50/101/152")
     model_fn = getattr(torchvision.models, name)
-
+    
     # Minimal working instantiation (no pretrained weights).
     # TODO: students should replace this with code that uses torchvision weights (if available)
     # and returns weights_enum and transforms when possible.
+    
     try:
-        # Try to use new torchvision weights API if present (best-effort)
-        weights_enum = getattr(torchvision.models, f"{name}_weights", None)
+        # TODO: implement torchvision weights API usage here
+        weights_class_name = f"ResNet{name[6:]}_Weights"  # Extract number part
+        weights_enum = getattr(torchvision.models, weights_class_name, None)
+        
         if weights_enum is not None:
-            # choose default/first available
-            try:
-                default = getattr(weights_enum, "DEFAULT", None)
-                if default is None:
-                    default = next(iter(weights_enum))
-                weights = default
-                model = model_fn(weights=weights).to(device)
-                # torchvision weights typically provide .transforms()
-                preprocess = weights.transforms()
-                return model, preprocess, weights_enum
-            except Exception:
-                # fallback to non-pretrained
-                pass
-    except Exception:
-        pass
-
-    # Fallback: non-pretrained model and basic preprocess
+            weights = weights_enum.DEFAULT
+            model = model_fn(weights=weights).to(device)
+            preprocess = weights.transforms()
+            model.eval()
+            #print(f"Loaded {name} using modern API with {weights}")
+            return model, preprocess, weights_enum
+    except (AttributeError, TypeError) as e:
+        print(f"Modern API failed: {e}")
+    
+    # TODO: implement fallback to non-pretrained model and basic preprocess
+    print(f"Warning: Loading {name} WITHOUT pretrained weights!")
     model = model_fn(weights=None).to(device)
-    preprocess = torchvision.transforms.Compose([
-        torchvision.transforms.Resize(256),
-        torchvision.transforms.CenterCrop(224),
-        torchvision.transforms.ToTensor(),
-        torchvision.transforms.Normalize(mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225])
+    preprocess = transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
-    weights_enum = None
-
     model.eval()
-    return model, preprocess, weights_enum
+    return model, preprocess, None
 
 
 def model_summary(model: nn.Module):
