@@ -116,7 +116,6 @@ def download_imagenet_labels():
         if len(labels) >= 1000:
             return labels
     except Exception:
-        # Network may be unavailable in testing environment; that's okay — return None
         return None
     return None
 
