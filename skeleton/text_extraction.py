@@ -181,7 +181,7 @@ def token_looks_like_price(token):
     """
     # TODO: implement quick heuristics similar to original: presence of $ . , or short digit groups
     return PRICE_RE.match(token) or ANY_NUM_RE.match(token)
-
+  
     #raise NotImplementedError("token_looks_like_price: TODO implement heuristic")
 
 def is_footer_line(line_text):
@@ -415,6 +415,7 @@ def process_image_file(path, args):
     printed_total = None
     for line_obj in clustered_lines:
         item_name, price, is_total = parse_line_for_item(line_obj, args.conf, args.max_item)
+        # compute computed_total as sum(items) and capture printed_total when found
         if item_name is not None:
             items_list.append((item_name, price))
             computed_total += price

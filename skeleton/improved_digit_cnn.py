@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import argparse
 import random
 import numpy as np
@@ -25,15 +26,7 @@ class CNN(nn.Module):
         """
         super().__init__()
         # TODO: Students may modify architecture for better performance
-        self.conv1 = nn.Conv2d(1, 16, 5, padding=2)   # fewer output channels, larger kernel
-        self.bn1 = nn.BatchNorm2d(16)
-        self.conv2 = nn.Conv2d(16, 32, 5, padding=2)
-        self.bn2 = nn.BatchNorm2d(32)
-        self.pool = nn.MaxPool2d(2, 2)
-        self.dropout = nn.Dropout(0.3)
-        self.fc1 = nn.Linear(32 * 7 * 7, 64)
-        self.fc2 = nn.Linear(64, 10)
-        self.conv1 = nn.Conv2d(1, 16, 5, padding=2)
+        '''self.conv1 = nn.Conv2d(1, 16, 5, padding=2)
         self.bn1 = nn.BatchNorm2d(16)
         self.conv2 = nn.Conv2d(16, 32, 5, padding=2)
         self.bn2 = nn.BatchNorm2d(32)
@@ -44,7 +37,24 @@ class CNN(nn.Module):
         self.dropout = nn.Dropout(0.3)
         # after 3 pools spatial dims: 28 -> 14 -> 7 -> 3 (approx)
         self.fc1 = nn.Linear(64 * 3 * 3, 64)
-        self.fc2 = nn.Linear(64, 10)
+        self.fc2 = nn.Linear(64, 10)'''
+
+        self.conv1 = nn.Conv2d(1, 32, 5, padding=2)
+        self.bn1 = nn.BatchNorm2d(32)
+        self.conv2 = nn.Conv2d(32, 64, 5, padding=2)
+        self.bn2 = nn.BatchNorm2d(64)
+        # Add conv3 to match pooling thrice -> 28->14->7->3
+        self.conv3 = nn.Conv2d(64, 128, 3, padding=1)
+        self.bn3 = nn.BatchNorm2d(128)
+        self.pool = nn.MaxPool2d(2, 2)
+        
+        # 2. REDUCE DROPOUT (0.3 -> 0.1)
+        self.dropout = nn.Dropout(0.1)
+        
+        # 3. INCREASE FC SIZE: Input is now 128 * 3 * 3 = 1152 features
+        # after 3 pools spatial dims: 28 -> 14 -> 7 -> 3 (approx)
+        self.fc1 = nn.Linear(128 * 3 * 3, 128) # 64 -> 128 hidden units
+        self.fc2 = nn.Linear(128, 10)
 
     def forward(self, x):
         """
@@ -96,27 +106,27 @@ def train_one_epoch(model, loader, optimizer, criterion, device):
     """
     model.train()
     running_loss = 0.0
+    total_samples = 0
     for imgs, labels in loader:
         # TODO: Students should implement the training loop:
-        # move imgs and labels to device
+        #   - move imgs and labels to device
+        #   - zero optimizer gradients
+        #   - perform forward pass, compute loss
+        #   - backpropagate and step optimizer
+        #   - accumulate running_loss
         imgs = imgs.to(device)
         labels = labels.to(device)
-
-        # zero optimizer gradients        
         optimizer.zero_grad()
-
-        # perform forward pass, compute loss
-        logits = model(imgs)        
+        logits = model(imgs)
         loss = criterion(logits, labels)
-
-        # backpropagate and step optimizer        
         loss.backward()
         optimizer.step()
-
-        # accumulate running_loss
-        running_loss += loss.item() * imgs.size(0)
-    
-    return running_loss / max(1, len(loader.dataset))
+        batch_size = imgs.size(0)
+        running_loss += loss.item() * batch_size
+        total_samples += batch_size
+    if total_samples == 0:
+        return 0.0
+    return running_loss / total_samples
 
 
 def evaluate(model, loader, device):
@@ -186,7 +196,7 @@ def main(args):
         if acc > best_acc:
             best_acc = acc
             # TODO: save model here (students implement)
-            torch.save(model.state_dict(), 'improved_digit_cnn.pth')
+            torch.save(model.state_dict(), "improved_digit_cnn.pth")
 
     print(f"Best Test Accuracy during run: {best_acc*100:.4f}%")
 

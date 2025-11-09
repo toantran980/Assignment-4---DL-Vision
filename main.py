@@ -8,17 +8,17 @@ scripts = [
     #'improved_digit_cnn.py',
     #'predict_my_digits.py',
     #'text_extraction.py',
-    'animal_classifier.py',
+    #'animal_classifier.py',
     #'object_detection.py'
 ]
 
 # List of test modules to run
 test_scripts = [
     #'tests.test_predict_my_digits',
-    #'tests.test_improved_digit_cnn',
-    #'tests.test_animal_classifier',
-    #'tests.test_object_detection',
-    #'tests.test_text_extraction'
+    #'test_improved_digit_cnn',
+    'test_animal_classifier',
+    #'test_object_detection',
+    #'test_text_extraction'
 ]
 
 # Run each script from the skeleton directory
@@ -30,9 +30,15 @@ for script in scripts:
             print(f"Errors in {script}: return code {result.returncode}")
         else:
             # After training improved_digit_cnn.py, copy model to tests directory for testing
-            if script == 'improved_digit_cnn.py' and os.path.exists('improved_digit_cnn.pth'):
+            if script == 'improved_digit_cnn.py' and os.path.exists('skeleton/improved_digit_cnn.pth'):
                 import shutil
-                shutil.copy('improved_digit_cnn.pth', '../tests/improved_digit_cnn.pth')
+                shutil.copy('skeleton/improved_digit_cnn.pth', 'tests/improved_digit_cnn.pth')
+                print("Copied model to tests directory for testing.\n")
+
+            # After training animal_classifier.py, copy model to tests directory for testing
+            if script == 'animal_classifier.py' and os.path.exists('skeleton/animal_classifier.pth'):
+                import shutil
+                shutil.copy('skeleton/animal_classifier.pth', 'tests/animal_classifier.pth')
                 print("Copied model to tests directory for testing.\n")
         print(f"Finished {script}\n")
     except Exception as e:
