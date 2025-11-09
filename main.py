@@ -5,7 +5,7 @@ import os
 # List of scripts to run in sequence (from skeleton directory)
 scripts = [
     #'L04_digit_CNN.py',
-    #'improved_digit_cnn.py',
+    'improved_digit_cnn.py',
     #'predict_my_digits.py',
     #'text_extraction.py',
     #'animal_classifier.py',
@@ -15,8 +15,8 @@ scripts = [
 # List of test modules to run
 test_scripts = [
     #'tests.test_predict_my_digits',
-    #'test_improved_digit_cnn',
-    'test_animal_classifier',
+    'test_improved_digit_cnn',
+    #'test_animal_classifier',
     #'test_object_detection',
     #'test_text_extraction'
 ]

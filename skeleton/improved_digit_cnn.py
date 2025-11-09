@@ -26,7 +26,7 @@ class CNN(nn.Module):
         """
         super().__init__()
         # TODO: Students may modify architecture for better performance
-        '''self.conv1 = nn.Conv2d(1, 16, 5, padding=2)
+        self.conv1 = nn.Conv2d(1, 16, 5, padding=2)
         self.bn1 = nn.BatchNorm2d(16)
         self.conv2 = nn.Conv2d(16, 32, 5, padding=2)
         self.bn2 = nn.BatchNorm2d(32)
@@ -37,24 +37,7 @@ class CNN(nn.Module):
         self.dropout = nn.Dropout(0.3)
         # after 3 pools spatial dims: 28 -> 14 -> 7 -> 3 (approx)
         self.fc1 = nn.Linear(64 * 3 * 3, 64)
-        self.fc2 = nn.Linear(64, 10)'''
-
-        self.conv1 = nn.Conv2d(1, 32, 5, padding=2)
-        self.bn1 = nn.BatchNorm2d(32)
-        self.conv2 = nn.Conv2d(32, 64, 5, padding=2)
-        self.bn2 = nn.BatchNorm2d(64)
-        # Add conv3 to match pooling thrice -> 28->14->7->3
-        self.conv3 = nn.Conv2d(64, 128, 3, padding=1)
-        self.bn3 = nn.BatchNorm2d(128)
-        self.pool = nn.MaxPool2d(2, 2)
-        
-        # 2. REDUCE DROPOUT (0.3 -> 0.1)
-        self.dropout = nn.Dropout(0.1)
-        
-        # 3. INCREASE FC SIZE: Input is now 128 * 3 * 3 = 1152 features
-        # after 3 pools spatial dims: 28 -> 14 -> 7 -> 3 (approx)
-        self.fc1 = nn.Linear(128 * 3 * 3, 128) # 64 -> 128 hidden units
-        self.fc2 = nn.Linear(128, 10)
+        self.fc2 = nn.Linear(64, 10)
 
     def forward(self, x):
         """
@@ -123,10 +106,12 @@ def train_one_epoch(model, loader, optimizer, criterion, device):
         optimizer.step()
         batch_size = imgs.size(0)
         running_loss += loss.item() * batch_size
-        total_samples += batch_size
-    if total_samples == 0:
-        return 0.0
-    return running_loss / total_samples
+    return running_loss / max(1, len(loader.dataset))
+        #total_samples += batch_size
+    #if total_samples == 0:
+        #return 0.0
+    #return running_loss / total_samples
+
 
 
 def evaluate(model, loader, device):
