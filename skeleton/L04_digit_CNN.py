@@ -5,9 +5,10 @@ import torch.nn.functional as F
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
+import time
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-#device = torch.device('cpu')  # Force CPU usage
+device = torch.device('cpu')  # Force CPU usage
 if device.type == 'cuda':
     print(f"Using GPU: {torch.cuda.get_device_name(0)}")
 else:
@@ -54,6 +55,7 @@ optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
 for epoch in range(NUM_EPOCHS):
     model.train()
     total_loss = 0
+    start_time = time.time()  # Start timing
     for images, labels in train_loader: # load one batch at a time
         images, labels = images.to(device), labels.to(device) # copying data to device (CPU/GPU)
         images = images.view(-1, 1, 28, 28) # reshape the image tensor
@@ -63,7 +65,10 @@ for epoch in range(NUM_EPOCHS):
         loss.backward() # backpropagation
         optimizer.step() # weight updates
         total_loss += loss.item()
+    end_time = time.time()  # End timing
+    training_time = end_time - start_time
     print(f"Epoch {epoch+1}, Loss: {total_loss/len(train_loader):.4f}")
+    print(f"Training Time: {training_time:.4f} seconds")
 
 # Evaluate accuracy
 correct, total = 0, 0
