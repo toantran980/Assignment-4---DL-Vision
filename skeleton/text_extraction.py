@@ -24,7 +24,7 @@ import pytesseract
 # Tesseract executable path override (if needed)
 #pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 
-pytesseract.pytesseract.tesseract_cmd = r"C:\Users\toant\OneDrive\Desktop\OCR-tesseract\tesseract.exe"
+pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 
 # ---------- constants & regex ----------
 PRICE_RE = re.compile(r'\$?\s*\d{1,3}(?:[.,]\d{1,2})?$')
@@ -181,7 +181,7 @@ def token_looks_like_price(token):
     """
     # TODO: implement quick heuristics similar to original: presence of $ . , or short digit groups
     return PRICE_RE.match(token) or ANY_NUM_RE.match(token)
-  
+
     #raise NotImplementedError("token_looks_like_price: TODO implement heuristic")
 
 def is_footer_line(line_text):
@@ -311,7 +311,6 @@ def parse_line_for_item(line_obj, conf_threshold, max_item_price):
       - determine item name as text left of chosen token, cleaned up
       - mark is_total if line contains TOTAL_KEYWORDS
     """
-    # TODO: implement robust line parsing; this is the core logic used by process_image_file
     line_text = line_obj['line_text']
     tokens = line_obj['tokens']
     
@@ -415,7 +414,6 @@ def process_image_file(path, args):
     printed_total = None
     for line_obj in clustered_lines:
         item_name, price, is_total = parse_line_for_item(line_obj, args.conf, args.max_item)
-        # compute computed_total as sum(items) and capture printed_total when found
         if item_name is not None:
             items_list.append((item_name, price))
             computed_total += price
@@ -430,6 +428,31 @@ def write_csv_rows(rows, out_path):
     """
     Write rows (list of dict with keys 'store','item','amount') to CSV file with header.
     """
+
+    # --- Final hard filter for footer / survey / $0 lines ---
+    import re
+
+    def _norm(s):
+        return re.sub(r'[^a-z0-9]+', '', s.lower()) if isinstance(s, str) else ''
+
+    def _is_survey_footer(store, item):
+        ns, ni = _norm(store), _norm(item)
+        bad = [
+            'survey', 'giveus', 'giveun', 'walmartcom', 'walmartcoma', 'www',
+            'http', 'netwk', 'arkyout', 'sui0in', 'arky0ut'
+        ]
+        return any(t in ns or t in ni for t in bad)
+
+    before = len(rows)
+    rows = [
+        r for r in rows
+        if not _is_survey_footer(r.get('store',''), r.get('item',''))
+        and r.get('amount','').strip() not in ('$0', '$0.00', '0', '0.00')
+    ]
+    after = len(rows)
+    print(f"[CLEAN] Removed {before - after} footer/survey/zero rows. Kept {after}.")
+
+    # --- Write the filtered rows ---
     with open(out_path, 'w', newline='', encoding='utf-8') as f:
         writer = csv.DictWriter(f, fieldnames=['store','item','amount'])
         writer.writeheader()
